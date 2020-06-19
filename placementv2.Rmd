@@ -1,0 +1,226 @@
+---
+title: "placementv1"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+placement_data <- read.csv("Placement_Data_Full_Class.csv")
+```
+
+```{r}
+# creating reference of the dataset
+
+refer_placement <- placement_data
+```
+
+```{r}
+#plotting summary of dataset
+
+summary(refer_placement)
+```
+
+```{r}
+str(refer_placement)
+```
+
+```{r}
+# removing salary column from the dataset
+refer1_placement <- subset(refer_placement, select = -c(salary))
+```
+
+```{r}
+# Transforming data type from character to factor
+
+refer1_placement$gender <- as.numeric(refer1_placement$gender)
+refer1_placement$ssc_b <- as.numeric(refer1_placement$ssc_b)
+refer1_placement$hsc_b <- as.numeric(refer1_placement$hsc_b)
+refer1_placement$hsc_s <- as.numeric(refer1_placement$hsc_s)
+refer1_placement$degree_t <- as.numeric(refer1_placement$degree_t)
+refer1_placement$workex <- as.numeric(refer1_placement$workex)
+refer1_placement$specialisation <- as.numeric(refer1_placement$specialisation)
+refer1_placement$status <- as.numeric(refer1_placement$status)
+```
+
+
+```{r}
+#plotting boxplots
+par(mfrow=c(2,6))
+boxplot(refer1_placement$gender~refer_placement$status)
+boxplot(refer_placement$ssc_p~refer_placement$status)
+boxplot(refer1_placement$ssc_b~refer_placement$status)
+boxplot(refer_placement$hsc_p~refer_placement$status)
+boxplot(refer1_placement$hsc_b~refer_placement$status)
+boxplot(refer1_placement$hsc_s~refer_placement$status)
+boxplot(refer_placement$degree_p~refer_placement$status)
+boxplot(refer1_placement$degree_t~refer_placement$status)
+boxplot(refer1_placement$workex~refer_placement$status)
+boxplot(refer_placement$etest_p~refer_placement$status)
+boxplot(refer1_placement$specialisation~refer_placement$status)
+boxplot(refer_placement$mba_p~refer_placement$status)
+
+```
+
+```{r}
+#plotting correlation plot
+require(corrplot)
+corrplot(cor(refer1_placement))
+```
+
+
+```{r}
+# Plotting status against different explanatory variables
+
+# graph of no.of people placed or not
+refer1_placement$status <- as.numeric(refer1_placement$status)
+barplot(table(refer_placement$status),
+        main = "No.of people placed or not",
+        xlab = "Status",
+        ylab = "No.of students",
+        col = c("red","green"))
+```
+
+```{r}
+# According to gender
+
+barplot(table(refer1_placement$status, refer1_placement$gender),
+        main = "No.of people placed or not",
+        xlab = "Gender",
+        ylab = "No.of students",
+        col = c("red","green"))
+```
+
+```{r}
+# According to secondary school board
+
+barplot(table(refer1_placement$status, refer1_placement$ssc_b),
+        main = "No.of people placed or not",
+        xlab = "Secondary School Board",
+        ylab = "No.of students",
+        col = c("red","green"))
+```
+
+```{r}
+# According to high school board
+
+barplot(table(refer1_placement$status, refer1_placement$hsc_b),
+        main = "No.of people placed or not",
+        xlab = "High School Board",
+        ylab = "No.of students",
+        col = c("red","green"))
+```
+
+```{r}
+# According to stream in high school
+
+barplot(table(refer1_placement$status, refer1_placement$hsc_s),
+        main = "No.of people placed or not",
+        xlab = "Stream in high school",
+        ylab = "No.of students",
+        col = c("red","green"))
+```
+
+```{r}
+# According to undergraduate degree
+
+barplot(table(refer1_placement$status, refer1_placement$degree_t),
+        main = "No.of people placed or not",
+        xlab = "Undergraduate degree",
+        ylab = "No.of students",
+        col = c("red","green"))
+```
+
+```{r}
+# According to work experience
+
+barplot(table(refer1_placement$status, refer1_placement$workex),
+        main = "No.of people placed or not",
+        xlab = "Work Experience",
+        ylab = "No.of students",
+        col = c("red","green"))
+```
+
+```{r}
+# According to specialisation in MBA
+
+barplot(table(refer1_placement$status, refer1_placement$specialisation),
+        main = "No.of people placed or not",
+        xlab = "Specialisation",
+        ylab = "No.of students",
+        col = c("red","green"))
+```
+
+```{r}
+# Now that all the graphs are done... start to build the model
+
+# Dividing into training and test sets
+
+TestIndex <- sample(nrow(refer1_placement), floor(0.2 * nrow(refer1_placement)))
+TestPlacement <- refer1_placement[TestIndex, ]
+TrainPlacement <- refer1_placement[-TestIndex, ]
+```
+
+```{r}
+# Build logit model using backward selection
+require(MASS)
+glm1 <- glm(TrainPlacement$status ~ ., family = binomial(logit), data = TrainPlacement)
+glm.back <- stepAIC(glm1,trace = FALSE)
+```
+
+```{r}
+summary(glm.back)
+```
+
+```{r}
+# doing prediction
+glmback.pred <- predict(glm.back, newdata = TestPlacement, type = "response")
+```
+
+```{r}
+# confusion matrix
+
+pred <- rep("Not Placed", nrow(TestPlacement))
+pred[glmback.pred > 0.7] <- "Placed"
+table(pred, TestPlacement$status)
+
+```
+
+```{r}
+# creating another model with forward selection
+
+glm2 <- glm(formula = status ~ gender + ssc_p + ssc_b + hsc_p + hsc_b + hsc_s + degree_t + degree_p + workex + etest_p + mba_p + specialisation, family = binomial(logit), data = TrainPlacement)
+```
+
+```{r}
+summary(glm2)
+```
+
+```{r}
+# From this we can see that the AIC value of the second model is higher and the predictions are not as correct as the first model done with backward selection
+```
+
+```{r}
+# Calculating the accuracy of the model
+require(dplyr)
+glm.pred1 <- 1*(glmback.pred > 0.7)+0
+predperc <- 1*(TestPlacement$status == "Placed")+ 0
+test <- TestPlacement %>% mutate(glm.pred1, predperc )
+
+test <- TestPlacement %>% mutate(accurate = 1*(glm.pred1 == predperc))
+sum(test$accurate)/nrow(test)
+```
+
+```{r}
+# Plotting standard diagnostic plots of backward model
+par(mfrow = c(2,2))
+plot(glm.back)
+```
+
